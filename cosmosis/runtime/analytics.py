@@ -217,10 +217,16 @@ class GridAnalytics(object):
         for i in self.grid_columns:
             name = self.column_names[i]
             vals = np.unique(self.data[:,i])
+            if vals.min()==vals.max():
+                print name
+                self.mu[i] = vals[0]
+                self.sigma[i] = 0.0
+                continue
             lv = np.zeros(self.nsample)
             assert len(vals==self.nsample)
             for j,v in enumerate(vals):
                 w = np.where(self.data[:,i]==v)
+                print w
                 lv[j] = np.exp(self.like[w]).sum()
             lv_sum = lv.sum()
             like_ratio = lv.max() / lv.min()

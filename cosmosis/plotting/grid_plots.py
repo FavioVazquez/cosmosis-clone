@@ -64,6 +64,9 @@ class GridPlotter(Plotter):
 		if len(vals1)==len(cols1) and not len(self.all_names)==2:
 			print "Not grid-plotting %s as it seems to be a derived parameter" % name1
 			raise ValueError(name1)
+		if vals1.min()==vals1.min():
+			print "Not grid-plotting %s as it seems to be fixed"%name1
+			raise ValueError(name1)
 		like_sum = np.zeros(n1)
 
 		#marginalize
@@ -138,6 +141,11 @@ class GridPlotter(Plotter):
 		cols1 = self.cols_for_name(name1).values()[0]
 		cols2 = self.cols_for_name(name2).values()[0]
 		like = self.cols_for_name("LIKE").values()[0]
+
+		if cols1.min()==cols1.max():
+			raise ValueError("Not plotting %s as it seems to be fixed"%name1)
+		if cols2.min()==cols2.max():
+			raise ValueError("Not plotting %s as it seems to be fixed"%name2)
 
 		#Marginalize over all the other parameters by summing
 		#them up
