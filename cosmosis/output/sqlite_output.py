@@ -121,7 +121,7 @@ class SqliteOutput(OutputBase):
         rank = options.get('rank', 0)
         nchain = options.get('parallel', 1)
         tag = options.get('tag', 'cosmosis')
-        ini = options.get('ini', '')
+        ini = options.get('inifile', '')
         uuid = options['uuid']
         sampler = options.get('sampler', 'unknown')
 
