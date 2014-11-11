@@ -11,6 +11,7 @@ from cosmosis.runtime.utils import ParseExtraParameters
 from cosmosis.samplers.sampler import sampler_registry, ParallelSampler
 from cosmosis import output as output_module
 import ConfigParser
+import uuid
 
 RUNTIME_INI_SECTION = "runtime"
 
@@ -44,6 +45,14 @@ def main(args, pool=None):
         if not issubclass(sampler_class,ParallelSampler):
             raise ValueError("Sampler does not support parallel execution!")
 
+    #Create a unique identifier for this run
+    #This is just a code number that should be unique, but shared
+    #across the different processes in the run
+    uid = uuid.uuid4()
+    if pool:
+        uid = pool.comm.bcast(uid)
+
+
     #Now that we have a sampler we know whether we will need an
     #output file or not.  By default new samplers do need one.
     if sampler_class.needs_output and \
@@ -62,7 +71,9 @@ def main(args, pool=None):
         if (pool is not None) and sampler_class.parallel_output:
             output_options['rank'] = pool.rank
             output_options['parallel'] = pool.size
-
+        output_options['inifile'] = args.inifile
+        output_options['sampler'] = sample_method
+        output_options['uuid'] = uid
         #Generate the output from a factory
         output = output_module.output_from_options(output_options)
         output.metadata("sampler", sample_method)
