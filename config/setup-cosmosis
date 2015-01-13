@@ -68,36 +68,36 @@ export PYTHONUSERBASE=${COSMOSIS_SRC_DIR}
 # We do not use the Python UPS products on OS X.
 if [ "$flavor" != "Darwin64bit" ]
 then
-  setup -B scipy v0_14_0 -q +e7:+prof
-  setup -B pyfits v3_3 -q +e7:+prof
-  setup -B pyyaml v3_11a
+  setup -B scipy v0_14_0 -q +e7:+prof || die "Failed to setup scipy"
+  setup -B pyfits v3_3 -q +e7:+prof || die "Failed to setup pyfits"
+  setup -B pyyaml v3_11a || die "Failed to setup pyyaml"
 fi
 
-setup -B gsl v1_16 -q +prof
-setup -B fftw v3_3_4 -q +prof
-setup -B cfitsio v3_37_0 -q +prof
-setup -B lapack v3_5_0 -q +e7:+prof
+setup -B gsl v1_16 -q +prof || die "Failed to setup gsl"
+setup -B fftw v3_3_4 -q +prof || die "Failed to setup fftw"
+setup -B cfitsio v3_37_0 -q +prof || die "Failed to setup cfitsio"
+setup -B lapack v3_5_0 -q +e7:+prof || diel "Failed to setup lapack"
 
 if [ -d "$SETUPS_DIR/planckdata/v1_1" ]
 then
-	setup -B planckdata v1_1
+	setup -B planckdata v1_1 || die "Failed to setup planckdata"
 fi
 
 if [ -d "$SETUPS_DIR/wmapdata/v5_00" ]
 then
-	setup -B wmapdata v5_00
+	setup -B wmapdata v5_00 || die "Failed to setup wmapdata"
 fi
 
 if [ -d "$SETUPS_DIR/minuit2/v5_28_0" ]
 then
-	setup -B minuit2 v5_34_14 -q +e7:+prof
+	setup -B minuit2 v5_34_14 -q +e7:+prof || die "Failed to setup minuit2"
 fi
 
 #if [ "$flavor" = "Darwin64bit" ]
 mpich_qualified_version="mpich v3_1_2a -q +e7:+prof"
 if ups exist $mpich_qualified_version
 then
-    setup -B $mpich_qualified_version
+    setup -B $mpich_qualified_version || die "Failed to setup $mpich_qualified_version"
 fi
 
 export PS1="(cosmosis) ${PS1:+${PS1}}"
