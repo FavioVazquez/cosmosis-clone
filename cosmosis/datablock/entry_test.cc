@@ -261,7 +261,8 @@ void test_vector(vector<T> const& vals)
   // Make sure the type and value is what is expected.
   assert(e.is<vector<T>>());
   assert(e.val<vector<T>>() == vals);
-  assert(e.size() == vals.size());
+  assert(e.size() > 0);
+  assert(static_cast<decltype(vals.size())>(e.size()) == vals.size());
 
   // Now make the value be an non-vector but memory-managed type, so we
   // can observe the switching, and test for leaking memory.
