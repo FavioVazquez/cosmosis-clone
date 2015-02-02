@@ -458,11 +458,12 @@ class TestPlots(Plots):
         output_dir = self.options.get("outdir", "png")
         prefix=self.options.get("prefix","")
         ftype=self.options.get("file_type", "png")
+        plot_data=self.options.get("plot_data", False)
         filenames = []
         for cls in cosmology_theory_plots.plot_list:
             fig = None
             try:
-                p=cls(dirname, output_dir, prefix, ftype, figure=None)
+                p=cls(dirname, output_dir, prefix, ftype, figure=None,plot_data=plot_data)
                 filename=p.filename
                 fig = p.figure
                 p.figure=fig

@@ -7,6 +7,7 @@ import numpy as np
 #we may want to run this program as a script directly.
 from cosmosis.postprocessing import lazy_pylab as pylab
 from cosmosis.runtime import utils
+from . import data_plots
 
 
 #Set up the command line arguments
@@ -53,7 +54,7 @@ class Plot(object):
 			#But otherwise we record it in our list
 			plot_list.append(cls)
 
-	def __init__(self, dirname, outdir, prefix, suffix, quiet=False, figure=None):
+	def __init__(self, dirname, outdir, prefix, suffix, quiet=False, figure=None, plot_data=False):
 		#Set up the plotting figure
 		if figure is None:
 			self.figure = pylab.figure()
@@ -68,6 +69,7 @@ class Plot(object):
 		#All the data will be in subclasses of this
 		self.dirname = dirname
 		self.quiet=quiet
+		self.plot_data=plot_data
 
 	def file_path(self, section, name):
 		return "{0}/{1}/{2}.txt".format(self.dirname, section, name)
@@ -178,6 +180,10 @@ class CMBSpectrumPlot(Plot):
 
 class TTPlot(CMBSpectrumPlot):
 	name = filename = "tt"
+	def plot(self):
+		super(TTPlot,self).plot()
+		if self.plot_data:
+			data_plots.DataPlotPlanck("cosmosis/plot_data").plot()
 
 class EEPlot(CMBSpectrumPlot):
 	name = filename = "ee"
@@ -308,6 +314,9 @@ class MatterPower2D(ShearSpectrumPlot):
 		super(ShearSpectrumPlot, self).plot()
 		self.plot_section("matter_cl")
 
+def arcmin(rad):
+	return np.degrees(rad)*60
+
 class ShearCorrelationPlot(Plot):
 	"Shear-shear power spectrum"
 	filename = "shear_correlation"
@@ -323,8 +332,10 @@ class ShearCorrelationPlot(Plot):
 		if nbin==0:
 			IOError("No data for plot: %s"% self.__class__.__name__[:-4])
 
-		theta = self.load_file("shear_xi", "theta")
+		theta = arcmin(self.load_file("shear_xi", "theta"))
 		sz = 1.0/(nbin+2)
+		if self.plot_data and nbin==6:
+			overplot=data_plots.DataPlotHeymansFull("cosmosis/plot_data")
 		for i in xrange(1, nbin+1):
 			for j in xrange(1, i+1):
 				rect = (i*sz,j*sz,sz,sz)
@@ -333,10 +344,13 @@ class ShearCorrelationPlot(Plot):
 				#pylab.subplot(nbin, nbin, (nbin*nbin)-nbin*(j-1)+i)
 				xi = self.load_file("shear_xi", "xiplus_{0}_{1}".format(i,j))
 				pylab.loglog(theta, xi)
-				pylab.xlim(1e-4,1e-1)
+				if self.plot_data:
+					overplot.plot(j,i, plus=True)
+				pylab.xlim(np.degrees(1e-4)*60,np.degrees(1e-1)*60)
 				pylab.ylim(2e-7,1e-3)
+				pylab.yscale('log', nonposy='clip')
 				if i==1 and j==1:
-					pylab.xlabel(r"$\theta$")
+					pylab.xlabel(r"$\theta$ / arcmin")
 					pylab.ylabel(r"$\xi_+(\theta)$")
 				else:
 					pylab.gca().xaxis.set_ticklabels([])
@@ -345,7 +359,7 @@ class ShearCorrelationPlot(Plot):
 				pylab.gca().tick_params(length=3.0, which='major')
 				pylab.gca().tick_params(labelsize=10)
 
-				pylab.text(1.5e-3,1.8e-4,"(%d,%d)"%(i,j), fontsize=8, color='red')
+				pylab.text(arcmin(1.5e-3),1.8e-4,"(%d,%d)"%(i,j), fontsize=8, color='red')
 				pylab.grid()
 
 class GrowthPlot(Plot):
