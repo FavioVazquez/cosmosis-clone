@@ -145,7 +145,7 @@ class MetropolisHastingsStatistics(ConstrainingStatistics, MCMCPostProcessorElem
         files = self.report_file()
         return files
 
-class ChainCovariance(object):
+class ChainCovariance(PostProcessorElement):
     def run(self):
         #Determine the parameters to use
 

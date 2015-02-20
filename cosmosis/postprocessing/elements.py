@@ -30,10 +30,21 @@ class Loadable(object):
         subclasses = cls.subclasses_in_file(filename)
         return [s(*args, **kwargs) for s in subclasses]
 
+elementRegistry = {}
+
+class ElementMetaclass(type):
+    """
+    Classes which are instantiations of this metaclass register themselves
+    with the element registry
+    """
+    def __init__(cls, name, b, d):
+        elementRegistry[name] = cls
+        super(ElementMetaclass, cls).__init__(name, b, d)
 
 
 
 class PostProcessorElement(Loadable):
+    __metaclass__=ElementMetaclass
     def __init__(self, data_source, **options):
         super(PostProcessorElement,self).__init__()
         self.source = data_source
