@@ -6,27 +6,28 @@ class Prior(object):
     def __call__(self, p):
         raise NotImplementedError()
 
-    def load_priors(prior_files):
+    def load_priors(self,prior_files):
         priors = {}
         for f in prior_files:
-            with Inifile(f) as ini:
-                for option, value in ini:
-                    if option in prior:
+            ini =  config.Inifile(f)
+            for (section,name), value in ini:
+		    option = (section,name)
+                    if option in priors:
                         raise ValueError("Duplicate prior identified")
 
                     prior_type, parameters = value.split(' ', 1)
                     prior_type = prior_type.lower()
 
                     try:
-                        parameters = [float(p) for p in parameters]
+                        parameters = [float(p) for p in parameters.split()]
 
-                        if prior_type.startwith("uni"):
-                            prior[option] = UniformPrior(*parameters)
+                        if prior_type.startswith("uni"):
+                            priors[option] = UniformPrior(*parameters)
                         elif prior_type.startswith("gau") or \
                                 prior_type.startswith("nor"):
-                            prior[option] = GaussianPrior(*parameters)
+                            priors[option] = GaussianPrior(*parameters)
                         elif prior_type.startswith("exp"):
-                            prior[option] = ExponentialPrior(*parameters)
+                            priors[option] = ExponentialPrior(*parameters)
                         else:
                             raise ValueError("Unable to parse %s as prior" %
                                              (value,))

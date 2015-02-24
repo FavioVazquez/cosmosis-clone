@@ -1,6 +1,6 @@
 import random
 import config
-import prior
+from prior import Prior
 import numpy as np
 
 class Parameter(object):
@@ -92,7 +92,8 @@ class Parameter(object):
         values_ini = config.Inifile(value_file)
 
         if priors_files:
-            priors = Prior.load_priors(priors_files)
+	    prior_class = Prior()
+            priors = prior_class.load_priors(priors_files)
         else:
             priors = {}
 
