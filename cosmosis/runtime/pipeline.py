@@ -203,7 +203,6 @@ class Pipeline(object):
             modules = modules[self.shortcut_module:]
 
         time_remaining = self.timeout
-        self.timeout = 20
         for module_number, module in enumerate(modules):
             if self.debug:
                 sys.stdout.write("Running %.20s ...\n" % module)
