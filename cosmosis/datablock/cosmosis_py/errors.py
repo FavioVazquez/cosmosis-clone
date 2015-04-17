@@ -1,6 +1,7 @@
 import collections
 import types
 
+COSMOSIS_TIMEOUT = -124816
 
 enum_names = [
 "DBS_SUCCESS",

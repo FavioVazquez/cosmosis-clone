@@ -2,8 +2,10 @@ import os
 import ctypes
 import sys
 import numpy as np
-
+import signal
 from cosmosis.datablock import option_section
+from cosmosis.datablock import cosmosis_execute_config_timeout, cosmosis_execute_simple_timeout
+from cosmosis.datablock.cosmosis_py.errors import COSMOSIS_TIMEOUT
 
 MODULE_TYPE_EXECUTE_SIMPLE = "execute"
 MODULE_TYPE_EXECUTE_CONFIG = "execute_config"
@@ -14,8 +16,24 @@ MODULE_LANG_PYTHON = "python"
 MODULE_LANG_DYLIB = "dylib"
 
 
+class TimeoutError(Exception):
+    pass
+
 class SetupError(Exception):
     pass
+
+def handle_timeout(sig, frame):
+    raise TimeoutError("Module took too long")
+
+def timeout_call(timeout, function, *args, **kwargs):
+    signal.signal(signal.SIGALRM, handle_timeout)
+    signal.alarm(timeout)
+    try:
+        result = function(*args, **kwargs)
+    finally:
+        signal.alarm(0)
+    return result
+
 
 
 class Module(object):
@@ -75,13 +93,28 @@ class Module(object):
         if self.execute_function is None:
             raise ValueError("Could not find a function 'execute' in module %s"%self.name)
 
-    def execute(self, data_block):
+    def execute(self, data_block, timeout=0):
         if not self.is_python:
             data_block = data_block._ptr
         if self.data is not None:
-            return self.execute_function(data_block, self.data)
+            if self.is_python:
+                try:
+                    return timeout_call(timeout, self.execute_function,data_block, self.data)
+                except TimeoutError:
+                    return COSMOSIS_TIMEOUT
+            else:
+                f = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_voidp, ctypes.c_voidp)(self.execute_function)
+                return cosmosis_execute_config_timeout(f, data_block, self.data, self.name, timeout)
         else:
-            return self.execute_function(data_block)
+            if self.is_python:
+                try:
+                    return timeout_call(timeout, self.execute_function,data_block)
+                except TimeoutError:
+                    return COSMOSIS_TIMEOUT
+            else:
+                f = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_voidp, ctypes.c_voidp)(self.execute_function)
+                return cosmosis_execute_simple_timeout(f, data_block, self.data, self.name, timeout)
+
 
     def cleanup(self):
         if self.cleanup_function:

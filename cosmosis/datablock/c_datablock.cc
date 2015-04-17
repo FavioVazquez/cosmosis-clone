@@ -11,6 +11,8 @@
 #include "c_datablock.h"
 #include "ndarray.hh"
 #include "clamp.hh"
+#include <csetjmp>
+#include <unistd.h>
 
 using cosmosis::DataBlock;
 using cosmosis::Section;
@@ -1436,6 +1438,46 @@ c_datablock_replace_metadata(c_datablock* s,
   return p->replace_metadata(section, name, key, val);
 }
 
+static jmp_buf alarm_handler_buffer;
+
+
+void cosmosis_alarm_handler(int sig)
+{
+    longjmp(alarm_handler_buffer, 1);
+}
+
+int cosmosis_execute_simple_timeout(int (*function)(void *), void * block, const char * name, int timeout)
+{
+  int status;
+  signal(SIGALRM, cosmosis_alarm_handler);
+  alarm(timeout);
+  if (!setjmp(alarm_handler_buffer)){
+    status = function(block);  
+  }
+  else{
+    fprintf(stderr, "Module %s timed out\n", name);
+    status = COSMOSIS_TIMEOUT;
+  }
+    alarm(0);
+    return status;
+}
+
+int cosmosis_execute_config_timeout(int (*function)(void *, void*), void * block, 
+  void * config, const char * name, int timeout)
+{
+  int status;
+  signal(SIGALRM, cosmosis_alarm_handler);
+  alarm(timeout);
+  if (!setjmp(alarm_handler_buffer)){
+    status = function(block, config);  
+  }
+  else{
+    fprintf(stderr, "Module %s timed out\n", name);
+    status = COSMOSIS_TIMEOUT;
+  }
+    alarm(0);
+    return status;
+}
 
 
 } // extern "C"

@@ -6,14 +6,17 @@ import numpy as np
 import time
 import collections
 import ConfigParser
-
+import timeit
+clock = timeit.default_timer
 import utils
 import config
+from math import ceil
 import parameter
 import prior
 import module
 from cosmosis.datablock.cosmosis_py import block
 import cosmosis.datablock.cosmosis_py as cosmosis_py
+from cosmosis.datablock.cosmosis_py.errors import COSMOSIS_TIMEOUT
 
 
 PIPELINE_INI_SECTION = "pipeline"
@@ -41,6 +44,7 @@ class Pipeline(object):
         self.quiet = self.options.getboolean(PIPELINE_INI_SECTION, "quiet", True)
         self.debug = self.options.getboolean(PIPELINE_INI_SECTION, "debug", False)
         self.timing = self.options.getboolean(PIPELINE_INI_SECTION, "timing", False)
+        self.timeout = self.options.getint(PIPELINE_INI_SECTION, "timeout", 0)
         shortcut = self.options.get(PIPELINE_INI_SECTION, "shortcut", "")
         if shortcut=="": shortcut=None
 
@@ -198,26 +202,36 @@ class Pipeline(object):
         if self.shortcut_module and not first:
             modules = modules[self.shortcut_module:]
 
+        time_remaining = self.timeout
+        self.timeout = 20
         for module_number, module in enumerate(modules):
             if self.debug:
                 sys.stdout.write("Running %.20s ...\n" % module)
                 sys.stdout.flush()
             data_package.log_access("MODULE-START", module.name, "")
-            if self.timing:
-                t1 = time.time()
+            if self.timing or self.timeout:
+                t1 = clock()
 
-            status = module.execute(data_package)
+            status = module.execute(data_package, timeout=int(ceil(time_remaining)))
 
             if self.debug:
                 sys.stdout.write("Done %.20s status = %d \n" % (module,status))
                 sys.stdout.flush()
 
-            if self.timing:
-                t2 = time.time()
-                sys.stdout.write("%s took: %f seconds\n"% (module,t2-t1))
+            if self.timing or self.timeout:
+                t2 = clock()
+                module_time = t2 - t1
+                if status==COSMOSIS_TIMEOUT:
+                    sys.stdout.write("%s took: %.2f seconds and ran out of time\n"% (module,t2-t1))
+                elif self.timeout:
+                    time_remaining -= module_time
+                    sys.stdout.write("%s took: %.2f seconds (%.2f remains until timeout)\n"% (module,t2-t1, time_remaining))
+                else:
+                    sys.stdout.write("%s took: %.2f seconds\n"% (module,t2-t1))
 
             if status:
-                if self.debug:
+                # If we timeout there's not point printing the 
+                if self.debug and not status==COSMOSIS_TIMEOUT:
                     data_package.print_log()
                     sys.stdout.flush()
                     sys.stderr.write("Because you set debug=True I printed a log of "
@@ -228,7 +242,7 @@ class Pipeline(object):
                                      "hopefully printed above here.\n"%status)
                     sys.stderr.write("Aborting this run and returning "
                                      "error status.\n")
-                    if not self.debug:
+                    if (not self.debug) and (status!=COSMOSIS_TIMEOUT):
                         sys.stderr.write("Setting debug=T in [pipeline] might help.\n")
                 return None
 

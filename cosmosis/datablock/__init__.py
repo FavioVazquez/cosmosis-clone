@@ -1,2 +1,3 @@
 from cosmosis_py.block import DataBlock, BlockError, option_section
 import cosmosis_py.section_names as names
+from cosmosis_py.lib import cosmosis_execute_config_timeout, cosmosis_execute_simple_timeout

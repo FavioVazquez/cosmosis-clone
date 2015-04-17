@@ -254,3 +254,17 @@ load_library_function(
 	ct.c_int
 	)
  
+load_library_function(
+	locals(),
+	"cosmosis_execute_simple_timeout",
+	[ct.CFUNCTYPE(ct.c_int, ct.c_voidp), ct.c_voidp, c_str, ct.c_int],
+	ct.c_int
+	)
+
+load_library_function(
+	locals(),
+	"cosmosis_execute_config_timeout",
+	[ct.CFUNCTYPE(ct.c_int, ct.c_voidp, ct.c_voidp), ct.c_voidp, ct.c_voidp, c_str, ct.c_int],
+	ct.c_int
+	)
+ 

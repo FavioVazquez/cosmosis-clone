@@ -42,6 +42,9 @@ typedef enum
   DBS_USED_DEFAULT,
 } DATABLOCK_STATUS;
 
+// This should be a return code unlikely to be used by a module
+#define COSMOSIS_TIMEOUT -124816
+
 #ifdef __cplusplus
 }
 #endif
