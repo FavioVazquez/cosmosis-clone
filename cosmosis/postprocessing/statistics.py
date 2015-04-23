@@ -1,5 +1,5 @@
 #coding: utf-8
-from .elements import PostProcessorElement, MCMCPostProcessorElement, MultinestPostProcessorElement
+from .elements import PostProcessorElement, MCMCPostProcessorElement, WeightedMCMCPostProcessorElement, MultinestPostProcessorElement
 import numpy as np
 from .utils import std_weight, mean_weight, median_weight
 
@@ -150,6 +150,11 @@ class ChainCovariance(object):
         #Determine the parameters to use
 
         col_names = [p for p in self.source.colnames if p.lower() not in ["like", "importance", "weight"]]
+
+        if len(col_names)<2:
+            return []
+
+
         cols = [self.reduced_col(p) for p in col_names]
         covmat = np.cov(cols)
 
@@ -346,13 +351,14 @@ class DunkleyTest(MetropolisHastingsStatistics):
         return kstar * x.size * 2 * np.pi
 
 
-class MultinestStatistics(MultinestPostProcessorElement, MetropolisHastingsStatistics):
+class WeightedStatistics(object):
     def compute_basic_stats_col(self, col):
         data = self.reduced_col(col)
         weight = self.weight_col()
         n = len(data)
         return n, mean_weight(data,weight), std_weight(data,weight), median_weight(data, weight)
 
+class MultinestStatistics(WeightedStatistics, MultinestPostProcessorElement, MetropolisHastingsStatistics):
     def run(self):
         # Use parent statistics, except add evidence information,
         # which is just read from the file
@@ -374,6 +380,28 @@ class MultinestStatistics(MultinestPostProcessorElement, MetropolisHastingsStati
         files.append(filename)
         return files
 
+#The class hierarchy is getting too complex for this - revise it
+class WeightedMetropolisStatistics(WeightedStatistics, ConstrainingStatistics, WeightedMCMCPostProcessorElement):
+    def compute_basic_stats(self):
+        self.mu = []
+        self.sigma = []
+        self.median = []
+        self.best_fit_index = self.source.get_col("like").argmax()
+        n = 0
+        for col in self.source.colnames:
+            n, mu, sigma, median = self.compute_basic_stats_col(col)
+            self.mu.append(mu)
+            self.sigma.append(sigma)
+            self.median.append(median)
+        return n
+
+    def run(self):
+        N = self.compute_basic_stats()
+        print "Samples after cutting:", N
+
+        self.report_screen()
+        files = self.report_file()
+        return files
 class MultinestCovariance(ChainCovariance, Statistics, MultinestPostProcessorElement):
     pass
 

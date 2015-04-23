@@ -1,5 +1,5 @@
 from .elements import PostProcessorElement
-from .elements import MCMCPostProcessorElement, MultinestPostProcessorElement
+from .elements import MCMCPostProcessorElement, MultinestPostProcessorElement, WeightedMCMCPostProcessorElement
 from .elements import Loadable
 from ..plotting.kde import KDE
 from .utils import std_weight, mean_weight
@@ -15,6 +15,7 @@ import sys
 default_latex_file = os.path.join(os.path.split(__file__)[0], "latex.ini")
 
 class Plots(PostProcessorElement):
+    excluded_columns = []
     def __init__(self, *args, **kwargs):
         super(Plots, self).__init__(*args, **kwargs)
         self.figures = {}
@@ -115,8 +116,26 @@ class Plots(PostProcessorElement):
             pylab.figure(fig.number)
             tweaks.run()
 
+    def parameter_pairs(self):
+        swap=self.options.get("swap")
+        for name1 in self.source.colnames[:]:
+            for name2 in self.source.colnames[:]:
+                if name1<=name2: continue
+                if name1.lower() in self.excluded_columns: continue
+                if name2.lower() in self.excluded_columns: continue
+                if swap:
+                    yield name2,name1
+                else:
+                    yield name1, name2
+
+
 
 class GridPlots(Plots):
+    excluded_columns=["like"]
+    def __init__(self, *args, **kwargs):
+        super(GridPlots, self).__init__(*args, **kwargs)
+        self.nsample_dimension = self.source.metadata[0]['nsample_dimension']
+
     @staticmethod
     def find_grid_contours(like, contour1, contour2):
         like_total = like.sum()
@@ -232,24 +251,24 @@ class GridPlots1D(GridPlots):
 class GridPlots2D(GridPlots):
     def run(self):
         filenames=[]
-        for i, name1 in enumerate(self.source.colnames[:-1]):
-            for name2 in self.source.colnames[:-1]:
+        nv = self.source.metadata[0]['n_varied']
+        for i, name1 in enumerate(self.source.colnames[:nv]):
+            for name2 in self.source.colnames[:nv]:
                 if name1<=name2: continue
                 filename=self.plot_2d(name1, name2)
                 if filename: filenames.append(filename)
         return filenames
 
-    def plot_2d(self, name1, name2):    
+    def get_grid_like(self, name1, name2):
         # Load the columns
         cols1 = self.source.get_col(name1)
         cols2 = self.source.get_col(name2)
         like = self.source.get_col("like")
         vals1 = np.unique(cols1)
         vals2 = np.unique(cols2)
-        n1 = len(vals1)
-        n2 = len(vals2)
-        if n1!=n2: return        
-        filename = self.filename("2D", name1, name2)
+
+        n1 = self.nsample_dimension
+        n2 = self.nsample_dimension
 
         like = like - like.max()
 
@@ -264,12 +283,20 @@ class GridPlots2D(GridPlots):
 
         #Normalize the log-likelihood to peak=0
         like -= like.max()
+        like = np.exp(like).reshape((n1,n2))
+        extent=(vals2[0], vals2[-1], vals1[0], vals1[-1])
+
+        return extent, like
+
+    def plot_2d(self, name1, name2):
+        extent, like = self.get_grid_like(name1, name2) 
 
         #Choose a color mapping
-        norm = pylab.matplotlib.colors.Normalize(np.exp(like.min()), np.exp(like.max()))
+        norm = pylab.matplotlib.colors.Normalize(like.min(), like.max())
         colormap = pylab.cm.Reds
 
         #Create the figure
+        filename = self.filename("2D", name1, name2)
         fig = self.figure(filename)
         pylab.figure(fig.number)
 
@@ -280,8 +307,6 @@ class GridPlots2D(GridPlots):
         else:
             interpolation='nearest'
 
-        like = np.exp(like).reshape((n1,n2))
-        extent=(vals2[0], vals2[-1], vals1[0], vals1[-1])
         #Make the plot
 
         if self.options.get("image", True):
@@ -306,12 +331,50 @@ class GridPlots2D(GridPlots):
 
         return filename
 
+
+
+class SnakePlots2D(GridPlots2D):
+    def get_grid_like(self, name1, name2):
+        # Load the columns
+        cols1 = self.source.get_col(name1)
+        cols2 = self.source.get_col(name2)
+        like = self.source.get_col("like")
+        vals1 = np.unique(cols1)
+        vals2 = np.unique(cols2)
+        dx1 = np.min(np.diff(vals1))
+        dx2 = np.min(np.diff(vals2))
+        left1 = vals1.min()
+        left2 = vals2.min()
+        right1 = vals1.max()
+        right2 = vals2.max()
+        n1 = int(np.round((right1-left1)/dx1))+1
+        n2 = int(np.round((right2-left2)/dx2))+1
+
+        like = like - like.max()
+
+        #Marginalize over all the other parameters by summing
+        #them up
+        like_sum = np.zeros((n1,n2))
+        for k,(v1, v2) in enumerate(itertools.product(vals1, vals2)):
+            w = np.where((cols1==v1)&(cols2==v2))
+            i = int(np.round((v1-left1)/dx1))
+            j = int(np.round((v2-left2)/dx2))
+            like_sum[i,j] = np.log(np.exp(like[w]).sum())
+        like = like_sum.flatten()
+
+        #Normalize the log-likelihood to peak=0
+        like -= like.max()
+        like = np.exp(like).reshape((n1,n2))
+        extent=(left2, right2, left1, right1)
+
+        return extent, like
+
+
 class MetropolisHastingsPlots(Plots, MCMCPostProcessorElement):
-    pass
+    excluded_columns = ["like"]
 
 
 class MetropolisHastingsPlots1D(MetropolisHastingsPlots):
-    excluded_colums = ["like"]
     def keywords_1d(self):
         return {}
 
@@ -346,7 +409,7 @@ class MetropolisHastingsPlots1D(MetropolisHastingsPlots):
     def run(self):
         filenames = []
         for name in self.source.colnames:
-            if name.lower() in self.excluded_colums: continue
+            if name.lower() in self.excluded_columns: continue
             filename = self.make_1d_plot(name)
             if filename: filenames.append(filename)
         return filenames
@@ -355,7 +418,6 @@ def next_entry(l, m):
     return m[(l.index(m) + 1)%len(m)]
 
 class MetropolisHastingsPlots2D(MetropolisHastingsPlots):
-    excluded_colums = ["like"]
 
     def keywords_2d(self):
         return {}
@@ -440,11 +502,7 @@ class MetropolisHastingsPlots2D(MetropolisHastingsPlots):
     def run(self):
         filenames = []
         print "(Making 2D plots using KDE; this takes a while but is really cool)"
-        for name1 in self.source.colnames[:]:
-            for name2 in self.source.colnames[:]:
-                if name1<=name2: continue
-                if name1.lower() in self.excluded_colums: continue
-                if name2.lower() in self.excluded_colums: continue
+        for name1,name2 in self.parameter_pairs():
                 filename = self.make_2d_plot(name1, name2)
                 if filename:
                     filenames.append(filename)
@@ -478,9 +536,7 @@ class TestPlots(Plots):
         return filenames
 
 
-
-class MultinestPlots1D(MultinestPostProcessorElement, MetropolisHastingsPlots1D):
-    excluded_colums = ["like", "weight"]
+class WeightedPlots1D(object):
     def smooth_likelihood(self, x):
         #Interpolate using KDE
         n = self.options.get("n_kde", 100)
@@ -497,14 +553,21 @@ class MultinestPlots1D(MultinestPostProcessorElement, MetropolisHastingsPlots1D)
         return n, x_axis, like
 
 
-class MultinestPlots2D(MultinestPostProcessorElement, MetropolisHastingsPlots2D):
-    excluded_colums = ["like", "weight"]
+class MultinestPlots1D(WeightedPlots1D, MultinestPostProcessorElement, MetropolisHastingsPlots1D):
+    excluded_columns = ["like", "weight"]
+
+
+class WeightedMetropolisPlots1D(WeightedPlots1D, WeightedMCMCPostProcessorElement, MetropolisHastingsPlots1D):
+    excluded_columns = ["like", "weight"]
+
+
+
+class WeightedPlots2D(object):
     def smooth_likelihood(self, x, y):
         n = self.options.get("n_kde", 100)
         fill = self.options.get("fill", True)
         factor = self.options.get("factor_kde", 2.0)
         weights = self.weight_col()
-
         kde = KDE([x,y], factor=factor, weights=weights)
         dx = std_weight(x, weights)*4
         dy = std_weight(y, weights)*4
@@ -531,6 +594,14 @@ class MultinestPlots2D(MultinestPostProcessorElement, MetropolisHastingsPlots2D)
         level1 = scipy.optimize.bisect(objective, like.min(), like.max(), args=(target1,))
         level2 = scipy.optimize.bisect(objective, like.min(), like.max(), args=(target2,))
         return level1, level2, like.sum()
+
+class WeightedMetropolisPlots2D(WeightedPlots2D, WeightedMCMCPostProcessorElement, MetropolisHastingsPlots2D):
+    excluded_columns = ["like", "weight"]
+    pass
+
+class MultinestPlots2D(WeightedPlots2D, MultinestPostProcessorElement, MetropolisHastingsPlots2D):
+    excluded_columns = ["like", "weight"]
+    pass
 
 class ColorScatterPlotBase(Plots):
     scatter_filename='scatter'
