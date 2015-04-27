@@ -5,7 +5,7 @@ import os
 from collections import OrderedDict
 import sqlite3
 import datetime
-
+import datetime
 
 
 
@@ -13,7 +13,7 @@ class SqliteOutput(OutputBase):
     FILE_EXTENSION = ".sq3"
     _aliases = ["sqlite", "sqlite3", "db"]
 
-    def __init__(self, filename, tag, uuid, sampler, ini, rank=0, nchain=1):
+    def __init__(self, filename, tag, sampler, ini, rank=0, nchain=1):
         super(SqliteOutput, self).__init__()
 
         self._db = sqlite3.connect(filename)
@@ -22,8 +22,8 @@ class SqliteOutput(OutputBase):
         self.master = (rank==0)
         self.inifile_name = ini
         self.tag = tag
-        self.uuid = uuid.hex
-        self._name = "{0}_{1}_{2}_{3}".format(tag, rank+1, nchain, self.uuid)
+        self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        self._name = "{0}_{1}_{2}_{3}".format(tag, rank+1, nchain, self.timestamp)
         if self.master:
             self.setup_db_file()
         #also used to store comments:
@@ -34,10 +34,11 @@ class SqliteOutput(OutputBase):
         self._comments = []
         self._params = []
         self._final_metadata = OrderedDict()
+        self.metadata("timestamp", self.timestamp)
 
     def setup_db_file(self):
         sql = "create table if not exists runs \
-        (tag text, ini text, sampler text, date text, nchain integer, uuid text)"
+        (tag text, ini text, sampler text, date text, nchain integer, timestamp text)"
         with self._db:
             self._db.execute(sql)
 
@@ -51,7 +52,7 @@ class SqliteOutput(OutputBase):
                 self._db.execute(sql, 
                     [self.tag, self.inifile_name, 
                     self.sampler, date_string,
-                    self.nchain, self.uuid
+                    self.nchain, self.timestamp
                     ])
 
             #Create the table for the chain output itself
@@ -122,13 +123,12 @@ class SqliteOutput(OutputBase):
         nchain = options.get('parallel', 1)
         tag = options.get('tag', 'cosmosis')
         ini = options.get('inifile', '')
-        uuid = options['uuid']
         sampler = options.get('sampler', 'unknown')
 
-        return cls(filename, tag, uuid, sampler, ini, rank, nchain)
+        return cls(filename, tag, sampler, ini, rank, nchain)
 
     @classmethod
     def load_from_options(cls, options):
         filename = options['filename']
-
+        ### more here
         return column_names, data, metadata, comments, final_metadata
