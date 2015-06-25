@@ -35,20 +35,17 @@ fi
 
 # Initialize UPS, if needed. If 'setup' is defined to be a shell
 # function, we have UPS already setup.
-typeset -f setup > /dev/null 2>&1
-if [ 1 -eq "$?" ]
-then
-    echo "We are setting up UPS from $product_db"
-    source $product_db/setups
-    if [ -z "$PRODUCTS" ]
-    then
-        echo "The setup of the UPS system has failed; please ask a local expert for assistance."
-        return 1
-    fi
+if [ -z "${SETUPS_DIR}" ]
+  echo "We are setting up UPS from $product_db"
+  source "${product_db}/setups"
+  if [ -z "${PRODUCTS}" ]
+  then
+    echo "The setup of the UPS system has failed; please ask a local expert for assistance."
+    return 1
+  fi
 else
-# We already have UPS setup. Add the local products database to our search path.
-    echo "We already have UPS setup; adding ${product_db} to PRODUCTS"
-    PRODUCTS=${product_db}:$PRODUCTS
+  source "${SETUPS_DIR}/setups"
+  PRODUCTS="${product_db}:${PRODUCTS}"
 fi
 
 # Set the library path appropriate for our flavor.
