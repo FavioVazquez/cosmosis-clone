@@ -2,6 +2,7 @@
 # environment for a development session.
 # Note: this currently only supports bash
 
+
 # Detect whether CosmoSIS is already set up; if so, do not repeat the
 # setup.
 cosmo_cmd=$(type cosmosis 2> /dev/null)
@@ -26,14 +27,16 @@ then
 fi
 
 product_db=`cat $COSMOSIS_SRC_DIR/config/ups`
-if [ ! -f "$product_db/.upsfiles/dbconfig" ]
+if [ ! -f "${product_db}/.upsfiles/dbconfig" ]
 then
-    echo "The directory $product_db does not appear to contain the UPS products."
+    echo "The directory ${product_db} does not appear to contain the UPS products."
     return 1
 fi
 
-# initialize UPS, if needed
-if [ -z "${PRODUCTS}" ]
+# Initialize UPS, if needed. If 'setup' is defined to be a shell
+# function, we have UPS already setup.
+typeset -f setup > /dev/null 2>&1
+if [ 1 -eq "$?" ]
 then
     source $product_db/setups
     if [ -z "$PRODUCTS" ]
@@ -77,77 +80,7 @@ export PYTHONUSERBASE=${COSMOSIS_SRC_DIR}
 #fi
 
 # setup UPS packages
-# We do not use the Python UPS products on OS X.
-
-setup -B gcc v4_9_2 2> /dev/null
-status=$?
-
-if [[ $status != 0 ]]
-then
-setup -B gcc v4_8_2
-fi
-
-
-if [ "$flavor" != "Darwin64bit" ]
-then
-  setup -B scipy v0_14_0 -q +e7:+prof 2> /dev/null
-  status=$?
-
-  if [[ $status != 0 ]]
-  then
-    setup -B scipy v0_13_0b -q +e5:+prof
-  fi
-
-  setup -B pyfits v3_3 -q +e7:+prof 2> /dev/null
-  status=$?
-
-  if [[ $status != 0 ]]
-  then
-    setup -B pyfits v3_2a -q +e5:+prof
-  fi
-
-  setup -B pyyaml v3_11a 2> /dev/null
-  status=$?
-  if [[ $status != 0 ]]
-  then
-    setup -B pyyaml v3_11
-  fi
-
-fi
-
-setup -B gsl v1_16 -q +prof
-
-setup -B fftw v3_3_3 -q +prof 2> /dev/null
-status=$?
-
-if [[ $status != 0 ]]
-then
-setup -B fftw v3_3_4   -q +prof
-fi
-
-setup -B cfitsio v3_35_0 -q +prof 2> /dev/null
-status=$?
-
-if [[ $status != 0 ]]
-then
-setup -B cfitsio v3_37_0   -q +prof
-fi
-
-
-if [ "$flavor" == "Darwin64bit" ]
-then
-export LAPACK_LIB=.
-else
-
-setup -B lapack v3_5_0 -q +e7:+prof 2> /dev/null
-status=$?
-
-if [[ $status != 0 ]]
-then
-setup -B lapack v3_4_2 -q +e5:+prof
-fi
-
-fi
+setup -B cosmosis_ups $(cat ${COSMOSIS_SRC_DIR}/config/cosmosis_ups_vers) 2> /dev/null
 
 if [ -d "$SETUPS_DIR/planckdata/v1_1" ]
 then
