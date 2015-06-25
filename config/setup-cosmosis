@@ -38,6 +38,7 @@ fi
 typeset -f setup > /dev/null 2>&1
 if [ 1 -eq "$?" ]
 then
+    echo "We are setting up UPS from $product_db"
     source $product_db/setups
     if [ -z "$PRODUCTS" ]
     then
@@ -46,6 +47,7 @@ then
     fi
 else
 # We already have UPS setup. Add the local products database to our search path.
+    echo "We already have UPS setup; adding ${product_db} to PRODUCTS"
     PRODUCTS=${product_db}:$PRODUCTS
 fi
 
