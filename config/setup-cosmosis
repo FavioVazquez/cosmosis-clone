@@ -19,19 +19,31 @@ then
   export COSMOSIS_SRC_DIR="$cosmosis_dir"
 fi
 
+if [ ! -z "${PRODUCTS}" ]
+then
+  echo "You have PRODUCTS defined to be ${PRODUCTS}"
+  echo "We will assume this is a valid UPS product search path"
+fi
+
 product_db=`cat $COSMOSIS_SRC_DIR/config/ups`
-if [ ! -f "$product_db/setups" ]
+if [ ! -f "$product_db/.upsfiles/dbconfig" ]
 then
     echo "The directory $product_db does not appear to contain the UPS products."
     return 1
 fi
 
-# initialize UPS
-source $product_db/setups
-if [ -z "$PRODUCTS" ]
+# initialize UPS, if needed
+if [ -z "${PRODUCTS}" ]
 then
-    echo "The setup of the UPS system has failed; please ask a local expert for assistance."
-    return 1
+    source $product_db/setups
+    if [ -z "$PRODUCTS" ]
+    then
+        echo "The setup of the UPS system has failed; please ask a local expert for assistance."
+        return 1
+    fi
+else
+# We already have UPS setup. Add the local products database to our search path.
+    PRODUCTS=${productdb}:$PRODUCTS
 fi
 
 # Set the library path appropriate for our flavor.
