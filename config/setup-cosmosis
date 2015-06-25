@@ -36,6 +36,7 @@ fi
 # Initialize UPS, if needed. If 'setup' is defined to be a shell
 # function, we have UPS already setup.
 if [ -z "${SETUPS_DIR}" ]
+then
   echo "We are setting up UPS from $product_db"
   source "${product_db}/setups"
   if [ -z "${PRODUCTS}" ]
