@@ -43,7 +43,7 @@ then
     fi
 else
 # We already have UPS setup. Add the local products database to our search path.
-    PRODUCTS=${productdb}:$PRODUCTS
+    PRODUCTS=${product_db}:$PRODUCTS
 fi
 
 # Set the library path appropriate for our flavor.
