@@ -92,24 +92,6 @@ then
 	setup -B wmapdata v5_00
 fi
 
-if [ -d "$SETUPS_DIR/minuit2/v5_28_0" ]
-then
-	setup -B minuit2 v5_28_0 -q +e5:+prof
-fi
-
-#if [ "$flavor" = "Darwin64bit" ]
-mpich_qualified_version="mpich v3_1 -q +e5:+prof"
-if ups exist $mpich_qualified_version
-then
-    setup -B $mpich_qualified_version
-else
-  mpich_qualified_version="mpich v3_1_2a -q +e7:+prof"
-  if ups exist $mpich_qualified_version
-  then
-      setup -B $mpich_qualified_version
-  fi
-fi
-
 function git-show-top-level {
     local __toplevel=`git rev-parse --show-toplevel 2> /dev/null`
     if [ -z "$__toplevel" ]
