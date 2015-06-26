@@ -35,7 +35,7 @@ fi
 
 # Initialize UPS, if needed. If 'setup' is defined to be a shell
 # function, we have UPS already setup.
-if [ -z "${SETUPS_DIR}" ]
+if [ -z "${UPS_DIR}" ]
 then
   echo "We are setting up UPS from $product_db"
   source "${product_db}/setups"
@@ -45,7 +45,7 @@ then
     return 1
   fi
 else
-  source "${SETUPS_DIR}/setups"
+  source "${UPS_DIR}/../../../setups"
   PRODUCTS="${product_db}:${PRODUCTS}"
 fi
 
