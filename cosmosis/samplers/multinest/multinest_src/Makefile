@@ -1,4 +1,10 @@
+include ${COSMOSIS_SRC_DIR}/config/compilers.mk
+
+ifeq (1,$(COSMOSIS_MPI))
+MPI=1
+else
 MPI = $(shell which mpif90 2> /dev/null)
+endif
 
 TARGETS=libnest3.so
 ifneq ($(MPI),)
@@ -7,8 +13,11 @@ endif
 
 all: $(TARGETS)
 
-FC = gfortran
+#FC = gfortran
+ifndef MPIFC
 MPIFC = mpif90
+endif
+
 FFLAGS += -O3 -fPIC -ffree-line-length-none
 
 LAPACKLIB=${LAPACK_LINK}

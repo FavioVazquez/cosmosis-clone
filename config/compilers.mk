@@ -2,9 +2,11 @@ ifeq (,$(COSMOSIS_SRC_DIR))
 $(error "You must source config/setup-cosmosis before building.")
 endif
 
+ifneq (1,$(COSMOSIS_NEW_COMPILERS))
 CXX=g++
 CC=gcc
 FC=gfortran
+endif
 
 ifeq (1,$(COSMOSIS_DEBUG))
 COMMON_FLAGS=-O0 -g -fPIC
