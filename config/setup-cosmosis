@@ -47,7 +47,7 @@ then
 else
   setups_dir="${UPS_DIR}/../../.."
   source "${setups_dir}/setups"  || \
-    die "The setup of the UPS system from ${setups_dir} failed. Try unsetting PRODUCTS and re-installing CosmoSIS"
+    die "The setup of the UPS system from ${setups_dir} failed. Try unsetting PRODUCTS and UPS_DIR and re-installing CosmoSIS"
   PRODUCTS="${product_db}:${PRODUCTS}"
 fi
 
