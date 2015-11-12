@@ -641,23 +641,6 @@ class MultinestPlots2D(WeightedPlots2D, MultinestPostProcessorElement, Metropoli
     pass
 
 
-class TrianglePlot(MetropolisHastingsPlots):
-    def run(self):
-        try:
-            import triangle
-        except ImportError:
-            print "Triangle library not available - no corner plot for you"
-            print "Maybe try pip install triangle"
-            return []
-        names = [name for name in self.source.colnames if not name in self.excluded_columns]
-        labels = [self.latex(name) for name in names]
-        chains = np.transpose([self.reduced_col(name) for name in names])
-        filename = self.filename("triangle")
-        figure = triangle.corner(chains, labels=labels, plot_datapoints=False)
-        self.set_output("triangle", PostprocessPlot("triangle",filename,figure))
-
-        return [filename]
-
 class ColorScatterPlotBase(Plots):
     scatter_filename='scatter'
     x_column = None
@@ -719,6 +702,33 @@ class WeightedMCMCColorScatterPlot(WeightedMCMCPostProcessorElement, ColorScatte
 
 class MultinestColorScatterPlot(MultinestPostProcessorElement, ColorScatterPlotBase):
     pass
+
+class CornerPlot(Plots):
+    def run(self):
+        from . import corner
+        names = [name for name in self.source.colnames if not name in self.excluded_columns]
+        cols = [self.source.reduced_col(name) for name in names]
+        labels = [self.latex(name) for name in names]
+        xs = np.array(cols).T
+        name = "corner" 
+        fig = self.get_output(name)
+        if fig is None:
+            new = True
+        else:
+            new = False
+            fig = fig.value
+        filename = self.filename(name)
+        fig = corner.corner(xs, plot_datapoints=True, labels=labels,
+                    fill_contours=False, levels=[0.68, 0.95], bins=25,
+                    smooth=1.0, fig=fig, no_fill_contours=True, plot_density=False,
+                    color=self.line_color())
+        if new:
+            self.set_output(name, PostprocessPlot(name,filename,fig))
+        return [filename]
+
+class MCMCCornerPlot(MetropolisHastingsPlots, CornerPlot):
+    pass
+
 
 
 class CovarianceMatrixEllipse(Plots):

@@ -10,6 +10,7 @@ class MetropolisHastingsProcessor(PostProcessor):
 	elements=[
 		plots.MetropolisHastingsPlots1D,
 		plots.MetropolisHastingsPlots2D,
+		plots.MCMCCornerPlot,
 		statistics.MetropolisHastingsStatistics,
 		statistics.MetropolisHastingsCovariance,
 		statistics.Citations,
