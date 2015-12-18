@@ -126,3 +126,7 @@ echo "CosmoSIS initialized"
 echo
 
 set-git-prompt-repo-name
+
+
+#Additional setup. Should maybe be moved into UPS
+export LAPACK_LINK="-L${LAPACK_LIB} -llapack -lblas"

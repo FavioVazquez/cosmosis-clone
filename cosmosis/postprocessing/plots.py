@@ -640,6 +640,24 @@ class MultinestPlots2D(WeightedPlots2D, MultinestPostProcessorElement, Metropoli
     excluded_columns = ["like", "weight", "log_weight", "old_log_weight", "old_weight", "old_like"]
     pass
 
+
+class TrianglePlot(MetropolisHastingsPlots):
+    def run(self):
+        try:
+            import triangle
+        except ImportError:
+            print "Triangle library not available - no corner plot for you"
+            print "Maybe try pip install triangle"
+            return []
+        names = [name for name in self.source.colnames if not name in self.excluded_columns]
+        labels = [self.latex(name) for name in names]
+        chains = np.transpose([self.reduced_col(name) for name in names])
+        filename = self.filename("triangle")
+        figure = triangle.corner(chains, labels=labels, plot_datapoints=False)
+        self.set_output("triangle", PostprocessPlot("triangle",filename,figure))
+
+        return [filename]
+
 class ColorScatterPlotBase(Plots):
     scatter_filename='scatter'
     x_column = None
@@ -701,6 +719,117 @@ class WeightedMCMCColorScatterPlot(WeightedMCMCPostProcessorElement, ColorScatte
 
 class MultinestColorScatterPlot(MultinestPostProcessorElement, ColorScatterPlotBase):
     pass
+
+
+class CovarianceMatrixEllipse(Plots):
+
+    def run(self):
+        filenames = []
+        self.covmat_estimate = np.linalg.inv(self.source.data[0])
+        for name1, name2 in self.parameter_pairs():
+            i = self.source.colnames.index(name1)
+            j = self.source.colnames.index(name2)
+            filename = self.plot_2d(name1, i, name2, j)
+            filenames.append(filename)
+        return filenames
+
+    def plot_2d(self, name1, i, name2, j):
+        #Get the central points about which this was estimated
+        mu1 = float(self.source.metadata[0]['mu_{0}'.format(i)])
+        mu2 = float(self.source.metadata[0]['mu_{0}'.format(j)])
+        pos = np.array([mu1,mu2])
+
+        #Cut the covariance estimate down to the two parameters
+        #we are using here
+        covmat = self.covmat_estimate[:,[i,j]][[i,j],:]
+
+        #for setting widths we would like a std. dev.
+        s11 = covmat[0,0]**0.5
+        s22 = covmat[1,1]**0.5
+
+        #Open the figure (new or existing) for this pair
+        figure,filename = self.figure("2D", name1, name2)
+        pylab.figure(figure.number)
+
+        #Plot the 1 sigma and 2 sigma ellipses
+        self.plot_cov_ellipse(covmat, pos, nstd=1, facecolor=None, 
+            edgecolor=self.line_color(), linewidth=2, fill=False)
+        self.plot_cov_ellipse(covmat, pos, nstd=2, facecolor=None, 
+            edgecolor=self.line_color(), linewidth=2, fill=False)
+
+
+        #Parameter ranges - use 3 sigma.
+        #We don't want to cut down on the existing range
+        #if it's bigger already so we check for that.
+        xmin,xmax = pylab.xlim()
+        ymin, ymax = pylab.ylim()
+        #The default range is (0,1) in both parameters
+        #That would confuse the code so we check whether this
+        #is the first run.
+        if self.plot_set>0:
+            xmin = min(xmin,mu1-3*s11)
+            xmax = max(xmax,mu1+3*s11)
+            ymin = min(ymin,mu2-3*s22)
+            ymax = max(ymax,mu2+3*s22)
+        else:
+            xmin = mu1-3*s11
+            xmax = mu1+3*s11
+            ymin = mu2-3*s22
+            ymax = mu2+3*s22
+
+        #And finally set the ranges, after all this.
+        pylab.xlim(xmin,xmax)
+        pylab.ylim(ymin, ymax)
+
+        #Axis labels, finally.
+        pylab.xlabel(self.latex(name1))
+        pylab.ylabel(self.latex(name2))
+        return filename
+
+
+
+    @staticmethod
+    def plot_cov_ellipse(cov, pos, nstd=1, **kwargs):
+        """
+        Based on code from StackOverflow. 
+        http://stackoverflow.com/questions/12301071/multidimensional-confidence-intervals
+
+        Plots an `nstd` sigma error ellipse based on the specified covariance
+        matrix (`cov`). Additional keyword arguments are passed on to the 
+        ellipse patch artist.
+
+        Parameters
+        ----------
+            cov : The 2x2 covariance matrix to base the ellipse on
+            pos : The location of the center of the ellipse. Expects a 2-element
+                sequence of [x0, y0].
+            nstd : The radius of the ellipse in numbers of standard deviations.
+                Defaults to 2 standard deviations.
+            ax : The axis that the ellipse will be plotted on. Defaults to the 
+                current axis.
+            Additional keyword arguments are pass on to the ellipse patch.
+
+        Returns
+        -------
+            A matplotlib ellipse artist
+        """
+        import matplotlib
+        from matplotlib.patches import Ellipse
+
+        def eigsorted(cov):
+            vals, vecs = np.linalg.eigh(cov)
+            order = vals.argsort()[::-1]
+            return vals[order], vecs[:,order]
+
+        vals, vecs = eigsorted(cov)
+        theta = np.degrees(np.arctan2(*vecs[:,0][::-1]))
+
+        # Width and height are "full" widths, not radius
+        width, height = 2 * nstd * np.sqrt(vals)
+        ellip = Ellipse(xy=pos, width=width, height=height, angle=theta, **kwargs)
+
+        pylab.gca().add_artist(ellip)
+        return ellip
 
 
 class Tweaks(Loadable):

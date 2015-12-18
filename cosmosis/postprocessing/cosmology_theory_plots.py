@@ -213,6 +213,9 @@ class MatterPowerPlot(Plot):
 		z = self.load_file(section, "z")
 		p = self.load_file(section, p_name)
 		if (p<0).all(): p*=-1
+		z = np.atleast_1d(z)
+		kh = np.atleast_1d(kh)
+		p = np.atleast_2d(p)
 		nk = len(kh)
 		nz = len(z)
 		if p.shape==(nz,nk):
@@ -362,6 +365,20 @@ class GrowthPlot(Plot):
 		pylab.xlabel("Redshift z")
 		pylab.ylabel("Growth Functions")
 		pylab.legend(loc='center right')
+
+
+class LuminositySlopePlot(Plot):
+	filename='galaxy_luminosity_slope'
+	def plot(self):
+		super(LuminositySlopePlot,self).plot()
+		section = "galaxy_luminosity_function"
+		z = self.load_file(section, "z")
+		alpha = self.load_file(section, "alpha")
+		pylab.plot(z, alpha)
+		pylab.grid()
+		pylab.xlabel("Redshift z")
+		pylab.ylabel(r"Luminosity Function Slope $\alpha$")
+
 
 
 def main(args):

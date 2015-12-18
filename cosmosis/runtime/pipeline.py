@@ -36,7 +36,9 @@ class Pipeline(object):
             self.options = config.Inifile(arg)
 
         #This will be set later
-        self.root_directory = None
+        self.root_directory = self.options.get("runtime", "root", "cosmosis_none_signifier")
+        if self.root_directory=="cosmosis_none_signifier":
+            self.root_directory=None
 
         self.quiet = self.options.getboolean(PIPELINE_INI_SECTION, "quiet", True)
         self.debug = self.options.getboolean(PIPELINE_INI_SECTION, "debug", False)
@@ -47,9 +49,6 @@ class Pipeline(object):
         # initialize modules
         self.modules = []
         if load and PIPELINE_INI_SECTION in self.options.sections():
-            rootpath = self.options.get(PIPELINE_INI_SECTION,
-                                        "root",
-                                        os.curdir)
             module_list = self.options.get(PIPELINE_INI_SECTION,
                                            "modules", "").split()
 
@@ -72,7 +71,7 @@ class Pipeline(object):
                                                   setup_function,
                                                   exec_function,
                                                   cleanup_function,
-                                                  rootpath))
+                                                  self.root_directory))
             self.shortcut_module=0
             self.shortcut_data=None
             if shortcut is not None:
@@ -222,7 +221,8 @@ class Pipeline(object):
                     sys.stdout.flush()
                     sys.stderr.write("Because you set debug=True I printed a log of "
                                      "all access to data printed above.\n"
-                                     "Look for the word 'FAIL'\n\n")
+                                     "Look for the word 'FAIL' \n")
+                    sys.stderr.write("Though the error message could also be somewhere above that.\n\n")
                 if not self.quiet:
                     sys.stderr.write("Error running pipeline (%d)- "
                                      "hopefully printed above here.\n"%status)
@@ -323,7 +323,7 @@ class LikelihoodPipeline(Pipeline):
                 c[i,j] /= (ri*rj)
         return c
 
-    def denormalize_matrix(self, c):
+    def denormalize_matrix(self, c, inverse=False):
         c = c.copy()
         n = c.shape[0]
         assert n==c.shape[1], "Cannot normalize a non-square matrix"
@@ -333,7 +333,10 @@ class LikelihoodPipeline(Pipeline):
             for j in xrange(n):
                 pj = self.varied_params[j]
                 rj = pj.limits[1] - pj.limits[0]
-                c[i,j] *= (ri*rj)
+                if inverse:
+                    c[i,j] /= (ri*rj)
+                else:
+                    c[i,j] *= (ri*rj)
         return c
 
 
@@ -344,6 +347,23 @@ class LikelihoodPipeline(Pipeline):
         else:            
             return np.array([param.start for
                          param in self.varied_params])
+
+    def min_vector(self, all_params=False):
+        if all_params:
+            return np.array([param.limits[0] for
+                 param in self.parameters])
+        else:
+            return np.array([param.limits[0] for
+                         param in self.varied_params])
+
+    def max_vector(self, all_params=False):
+        if all_params:
+            return np.array([param.limits[1] for
+                 param in self.parameters])
+        else:
+            return np.array([param.limits[1] for
+                         param in self.varied_params])
+
 
     def run_parameters(self, p, check_ranges=False, all_params=False):
         if check_ranges:

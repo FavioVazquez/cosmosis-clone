@@ -632,11 +632,14 @@ class DataBlock(object):
 		self._grid_put_replace(section, name_x, x, name_y, y, name_z, z, False)
 
 	def get_grid(self, section, name_x, name_y, name_z):
+		name_x = name_x.lower()
+		name_y = name_y.lower()
+		name_z = name_z.lower()
 		x = self[section, name_x]
 		y = self[section, name_y]
 		z = self[section, name_z]
 		sentinel_key = "_cosmosis_order_%s"%name_z
-		sentinel_value = self[section, sentinel_key]
+		sentinel_value = self[section, sentinel_key].lower()
 
 		if sentinel_value== "%s_cosmosis_order_%s" % (name_x, name_y):
 			assert z.shape==(x.size, y.size)
@@ -660,7 +663,7 @@ class DataBlock(object):
 
 		sentinel_key = "_cosmosis_order_%s"%name_z
 		sentinel_value = "%s_cosmosis_order_%s" % (name_x, name_y)
-		self[section, sentinel_key] = sentinel_value
+		self[section, sentinel_key] = sentinel_value.lower()
 
 		# x = np.array(x, dtype=np.double)
 		# y = np.array(y, dtype=np.double)
@@ -692,3 +695,38 @@ class DataBlock(object):
 		# 	status = lib.c_datablock_put_double_grid(self._ptr, section, name_x, nx, x_ptr, name_y, ny, y_ptr, name_z, z_ptr)
 		# if status!=0:
 		# 	raise BlockError.exception_for_status(status, section, ','.join([name_x, name_y, name_z]))
+
+
+class SectionOptions(object):
+	"""
+	The SectionOptions object wraps is a handy short-cut to let you
+	look up objects in a DataBlock object, but looking specifically at
+	the special section in an ini file that refers to "the section that 
+	defines the current module"
+
+	"""
+	def __init__(self, block):
+		self.block=block
+
+	def has_value(self, name):
+		has = self.block.has_value(option_section, name)
+		return bool(has)
+
+
+
+def _make_getter(cls, name):
+	if name=='__getitem__':
+		def getter(self, key):
+			return self.block[option_section, key]
+	else:
+		def getter(self, key, default=None):
+			return getattr(self.block, name)(option_section, key, default=default)
+	return getter
+
+
+
+
+for name in dir(DataBlock):
+	if name.startswith('get') or name=='__getitem__':
+		setattr(SectionOptions, name, _make_getter(SectionOptions, name))
+
