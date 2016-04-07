@@ -15,6 +15,7 @@ logpost_type = ctypes.CFUNCTYPE(
 
 output_type = ctypes.CFUNCTYPE(
     None,
+    ctypes.c_int, #sample index
     ctypes.c_double,  #weight
     ctypes.c_double,  #post
     ctypes.c_int, #length of the rest of the parameters
@@ -51,6 +52,7 @@ class PolychordSampler(ParallelSampler):
 
         self.ndim = len(self.pipeline.varied_params)
         self.nderiv = len(self.pipeline.extra_saves)
+        self.last_nsample = -1
 
         polychord = dll.polychord_cosmosis_interface_
         polychord.argtypes = [
@@ -65,9 +67,9 @@ class PolychordSampler(ParallelSampler):
         self.polychord = polychord
 
         if self.output:
-            def output_logger(weight, post, n, params):
+            def output_logger(c, weight, post, n, params):
                 params = np.array([params[i] for i in xrange(n)])
-
+                self.last_nsample = c
                 self.output_params(params, post, weight)
         else:
             def output_logger(weight, post, n, params):
@@ -82,8 +84,10 @@ class PolychordSampler(ParallelSampler):
             #pull out values from cube
             cube_vector = np.array([params[i] for i in xrange(nparam)])
             vector = self.pipeline.denormalize_vector(cube_vector)
+
             try:
                 post, extra = self.pipeline.posterior(vector)
+                print vector, post
             except KeyboardInterrupt:
                 raise sys.exit(1)
 
@@ -113,6 +117,7 @@ class PolychordSampler(ParallelSampler):
 
         self.output.final("log_z", self.log_z)
         self.output.final("log_z_error", self.log_z_err)
+        self.output.final("nsample", self.last_nsample)
 
 
     def output_params(self, params, post, weight):

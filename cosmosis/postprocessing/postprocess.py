@@ -192,6 +192,8 @@ class MultinestProcessor(WeightedMetropolisProcessor):
 		u = np.random.uniform(size=w.size)
 		return u<w
 
+class PolychordProcessor(MultinestProcessor):
+	sampler="polychord"
 
 class PMCPostProcessor(WeightedMetropolisProcessor):
 	sampler="pmc"

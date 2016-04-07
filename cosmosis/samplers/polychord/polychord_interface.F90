@@ -130,7 +130,7 @@ function polychord_cosmosis_interface(nparam, names, nderived, derived_names, co
     enddo
 
     ! Now initialise the rest of the system settings
-    settings%nlive         = 20
+    settings%nlive         = 100
     settings%num_repeats   = 4
     settings%do_clustering = .false.
 
@@ -149,7 +149,7 @@ function polychord_cosmosis_interface(nparam, names, nderived, derived_names, co
     settings%feedback      = 1
     settings%update_files  = settings%nlive
 
-    settings%boost_posterior= 5d0
+    settings%boost_posterior= 10d0
     allocate(settings%grade_frac(1)) 
     settings%grade_frac=[1d0]
 

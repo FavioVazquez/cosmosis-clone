@@ -99,7 +99,7 @@ program PolyChord
         call add_parameter(derived_params,'logVolume','\log X')
 
         ! Now initialise the rest of the system settings
-        settings%nlive         = 500
+        settings%nlive         = 1000
         settings%num_repeats   = 16
         settings%do_clustering = .false.
 
@@ -118,7 +118,7 @@ program PolyChord
         settings%feedback      = 1
         settings%update_files  = settings%nlive
 
-        settings%boost_posterior= 5d0
+        settings%boost_posterior= 16d0
         allocate(settings%grade_frac(1)) 
         settings%grade_frac=[1d0]
 

@@ -10,8 +10,9 @@ module nested_sampling_module
     implicit none
 
     abstract interface
-        subroutine cosmosis_output_sub_type(weight, post, n, params)
+        subroutine cosmosis_output_sub_type(count, weight, post, n, params)
             use iso_c_binding
+            integer(c_int), value ::  count
             real(c_double), value :: weight
             real(c_double), value :: post
             integer(c_int), value ::  n
@@ -487,17 +488,15 @@ module nested_sampling_module
         double precision :: weight
         integer np
         double precision :: post
+        integer count
 
         integer, dimension(RTI%ncluster+RTI%ncluster_dead) :: ordering
 
-        character(len=fmt_len) :: fmt_dbl
-
-        ! Assign the writing format
-        write(fmt_dbl,'("(",I0,A,")")') settings%np,DB_FMT 
 
         ! ------------- global weighted posteriors ----------------
 
         ! Print out the posteriors
+        count=1
         do i_post=1,RTI%nposterior_global(1)
 
             weight = exp(RTI%posterior_global(settings%pos_w,i_post,1) + RTI%posterior_global(settings%pos_l,i_post,1) - RTI%maxlogweight_global) 
@@ -505,7 +504,8 @@ module nested_sampling_module
             np = size(RTI%posterior_global(settings%pos_p0:,i_post,1))
 
             if( weight>0d0  ) then
-                call cosmosis_output_sub(weight, post, np, RTI%posterior_global(settings%pos_p0:,i_post,1))
+                call cosmosis_output_sub(count, weight, post, np, RTI%posterior_global(settings%pos_p0:,i_post,1))
+                count=count+1
             endif
         end do
 
