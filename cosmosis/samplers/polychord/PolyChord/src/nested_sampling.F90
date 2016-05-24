@@ -475,10 +475,13 @@ module nested_sampling_module
         use utils_module, only: DB_FMT,fmt_len,write_posterior_unit,write_equals_unit,sort_doubles
         use settings_module, only: program_settings
         use run_time_module, only: run_time_info 
+        use iso_c_binding
+
         implicit none
 
         type(program_settings), intent(in)    :: settings
         type(run_time_info),    intent(inout) :: RTI
+        real(c_double), allocatable, dimension(:) :: output_values
 
         procedure (cosmosis_output_sub_type), pointer :: cosmosis_output_sub
 
@@ -494,22 +497,25 @@ module nested_sampling_module
 
 
         ! ------------- global weighted posteriors ----------------
-
+        np = size(RTI%posterior_global(settings%pos_p0:,1,1))
+        !ensuring this has stride 1 and nothing silly like that
+        allocate(output_values(np))
         ! Print out the posteriors
         count=1
         do i_post=1,RTI%nposterior_global(1)
 
             weight = exp(RTI%posterior_global(settings%pos_w,i_post,1) + RTI%posterior_global(settings%pos_l,i_post,1) - RTI%maxlogweight_global) 
             post = -2*RTI%posterior_global(settings%pos_l,i_post,1)
-            np = size(RTI%posterior_global(settings%pos_p0:,i_post,1))
+            
 
             if( weight>0d0  ) then
-                call cosmosis_output_sub(count, weight, post, np, RTI%posterior_global(settings%pos_p0:,i_post,1))
+            output_values = RTI%posterior_global(settings%pos_p0:,i_post,1)
+                call cosmosis_output_sub(count, weight, post, np, output_values)
                 count=count+1
             endif
         end do
 
-
+        deallocate(output_values)
     end subroutine write_posterior_file_cosmosis
 
 

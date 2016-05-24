@@ -12,14 +12,15 @@ loglike_type = ctypes.CFUNCTYPE(
 
 output_type = ctypes.CFUNCTYPE(
     None,
+    ctypes.c_int, #count
     ctypes.c_double,  #weight
     ctypes.c_double,  #post
     ctypes.c_int, #length of the rest of the parameters
     ctypes.POINTER(ctypes.c_double),    
 )
 
-def output_printer(weight, post, n, params):
-    print "POST ", weight, post, '  '.join(str(params[i]) for i in xrange(n))
+def output_printer(count, weight, post, n, params):
+    print "POST ", count, weight, post, '  '.join(str(params[i]) for i in xrange(n))
 
 output_printer = output_type(output_printer)
 
