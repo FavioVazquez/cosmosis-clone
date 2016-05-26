@@ -189,6 +189,10 @@ all: $(EXAMPLES) $(PROGRAMS)
 libchord.a:
 	cd $(POLYCHORD_DIR) && make libchord.a
 
+libchord_mpi.a:
+	cd $(POLYCHORD_DIR) && make libchord_mpi.a
+
+
 # Rule for building likelihood libraries
 $(EXAMPLE_LIKELIHOODS) $(PROGRAM_LIKELIHOODS): libchord.a
 	cd $(LIKELIHOOD_DIR) && make $@

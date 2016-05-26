@@ -29,7 +29,7 @@ class PolychordSampler(ParallelSampler):
     parallel_output = False
     sampler_outputs = [("post", float), ("weight", float)]
     def config(self):
-        print "pool", self.pool
+        print self.pool
         if self.pool:
             libname = "polychord_interface_mpi.so"
         else:
@@ -41,7 +41,7 @@ class PolychordSampler(ParallelSampler):
         try:
             dll = ctypes.cdll.LoadLibrary(libname)
         except Exception as error:
-            sys.stderr.write("Multinest could not be loaded.\n")
+            sys.stderr.write("Polychord could not be loaded.\n")
             sys.stderr.write("This may mean an MPI compiler was not found to compile it,\n")
             sys.stderr.write("or that some other error occurred.  More info below.\n")
             sys.stderr.write(str(error)+'\n')
@@ -50,18 +50,32 @@ class PolychordSampler(ParallelSampler):
 
         self.converged=False
 
+
         self.ndim = len(self.pipeline.varied_params)
         self.nderiv = len(self.pipeline.extra_saves)
         self.last_nsample = -1
 
+        #User options
+        self.nlive = self.read_ini("nlive", int)
+        self.num_repeats = self.read_ini("num_repeats", int, 2*self.ndim)
+        do_clustering = self.read_ini("do_clustering", bool, True)
+        if do_clustering:
+            self.do_clustering = 1
+        else:
+            self.do_clustering = 0
+
+
         polychord = dll.polychord_cosmosis_interface_
         polychord.argtypes = [
-            ctypes.c_int,
-            ctypes.c_char_p,
-            ctypes.c_int,
-            ctypes.c_char_p,
-            output_type,
-            logpost_type,
+            ctypes.c_int,  #nlive
+            ctypes.c_int,  #num_repeats
+            ctypes.c_int,  #do_clustering
+            ctypes.c_int,  #nparam
+            ctypes.c_char_p,  #names
+            ctypes.c_int,  #nderived
+            ctypes.c_char_p, #derived_names
+            output_type,  #cosmosis_output_sub_c
+            logpost_type,  #cosmosis_loglikelihood_input
         ]
         polychord.restype = ctypes.c_int
         self.polychord = polychord
@@ -87,7 +101,6 @@ class PolychordSampler(ParallelSampler):
 
             try:
                 post, extra = self.pipeline.posterior(vector)
-                print vector, post
             except KeyboardInterrupt:
                 raise sys.exit(1)
 
@@ -98,7 +111,7 @@ class PolychordSampler(ParallelSampler):
         self.wrapped_posterior = logpost_type(posterior)
 
     def worker(self):
-        self.sample()
+        self.execute()
 
     def execute(self):
         self.log_z = 0.0
@@ -111,13 +124,15 @@ class PolychordSampler(ParallelSampler):
         output_sub = self.wrapped_output_logger
         logpost_func = self.wrapped_posterior
 
-        status = self.polychord(nparam, names, nderived, derived_names, output_sub, logpost_func)
-        print "Polychord status = ", status
+        status = self.polychord(self.nlive, self.num_repeats, self.do_clustering, 
+            nparam, names, nderived, derived_names, output_sub, logpost_func)
         self.converged = True
 
-        self.output.final("log_z", self.log_z)
-        self.output.final("log_z_error", self.log_z_err)
-        self.output.final("nsample", self.last_nsample)
+        if self.output:
+            print "Polychord status = ", status
+            self.output.final("log_z", self.log_z)
+            self.output.final("log_z_error", self.log_z_err)
+            self.output.final("nsample", self.last_nsample)
 
 
     def output_params(self, params, post, weight):

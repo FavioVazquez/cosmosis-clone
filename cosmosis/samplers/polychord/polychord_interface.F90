@@ -35,7 +35,8 @@ module polychord_interface_tools
 end module polychord_interface_tools
 
 
-function polychord_cosmosis_interface(nparam, names, nderived, derived_names, cosmosis_output_sub_c, cosmosis_loglikelihood_input) result(status)
+
+function polychord_cosmosis_interface(nlive, num_repeats, do_clustering, nparam, names, nderived, derived_names, cosmosis_output_sub_c, cosmosis_loglikelihood_input) result(status)
 
     ! ~~~~~~~ Loaded Modules ~~~~~~~
     use ini_module,               only: read_params,initialise_program
@@ -48,10 +49,18 @@ function polychord_cosmosis_interface(nparam, names, nderived, derived_names, co
     use abort_module,             only: halt_program
     use polychord_interface_tools,  only: loglikelihood, set_loglikelihood
     use iso_c_binding
+#ifdef MPI
+    use mpi_module,               only: initialise_mpi, finalise_mpi
+    use mpi, only: MPI_COMM_WORLD
+#endif
+
 
     ! ~~~~~~~ Local Variable Declaration ~~~~~~~
     implicit none
 
+    integer(c_int), value :: nlive
+    integer(c_int), value :: num_repeats
+    integer(c_int), value :: do_clustering
     integer(c_int), value :: nparam
     integer(c_int), value :: nderived
     character(kind=c_char, len=nparam*128)  :: names
@@ -81,18 +90,17 @@ function polychord_cosmosis_interface(nparam, names, nderived, derived_names, co
     type(param_type),dimension(:),allocatable :: params         ! Parameter array
     type(param_type),dimension(:),allocatable :: derived_params ! Derived parameter array
 
-    write(*,*) " --- Inputs ---"
-    write(*,*) nparam
-    write(*,*) nderived
-    write(*,*) names
-    write(*,*) derived_names
-
     ! ======= (1) Initialisation =======
     ! We need to initialise:
     ! a) mpi threads
     ! b) random number generator
     ! c) priors & settings
     ! d) loglikelihood
+
+#ifdef MPI
+    call initialise_mpi
+#endif
+
 
     call set_loglikelihood(cosmosis_loglikelihood_input)
 
@@ -130,9 +138,9 @@ function polychord_cosmosis_interface(nparam, names, nderived, derived_names, co
     enddo
 
     ! Now initialise the rest of the system settings
-    settings%nlive         = 100
-    settings%num_repeats   = 4
-    settings%do_clustering = .false.
+    settings%nlive         = nlive
+    settings%num_repeats   = num_repeats
+    settings%do_clustering = (do_clustering == 1)
 
     settings%base_dir      = 'chains'
     settings%file_root     = 'test'
@@ -149,7 +157,7 @@ function polychord_cosmosis_interface(nparam, names, nderived, derived_names, co
     settings%feedback      = 1
     settings%update_files  = settings%nlive
 
-    settings%boost_posterior= 10d0
+    settings%boost_posterior= 1.0d0 * num_repeats
     allocate(settings%grade_frac(1)) 
     settings%grade_frac=[1d0]
 
@@ -166,13 +174,12 @@ function polychord_cosmosis_interface(nparam, names, nderived, derived_names, co
     output_info = NestedSampling(loglikelihood,priors,settings,0, cosmosis_output_sub_c) 
 #endif
 
-
     ! ======= (3) De-initialise =======
 
     ! Finish off all of the threads
-#ifdef MPI
-    call finalise_mpi
-#endif
+! #ifdef MPI
+!     call finalise_mpi
+! #endif
 
     status = 0
 

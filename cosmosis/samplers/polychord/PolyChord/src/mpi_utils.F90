@@ -51,6 +51,11 @@ module mpi_module
             mpi_information%colour = 0
         end if
 
+#ifdef MPI
+        if (is_root(mpi_information)) then
+            write(*,'(A," ",I0," ",A)') "Using MPI Polychord with", mpi_information%nprocs, "processors"
+        endif
+#endif
     end function
 
     !> Returns whether this is the root node
