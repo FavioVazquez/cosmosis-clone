@@ -2,7 +2,7 @@ from . import text_output
 from . import cosmomc_output
 from . import null_output
 from . import sqlite_output
-
+from . import fits_output
 from .output_base import output_registry
 import logging
 
