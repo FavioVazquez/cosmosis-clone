@@ -5,9 +5,9 @@ import os
 from collections import OrderedDict
 import sqlite3
 import datetime
-import datetime
 
-
+TIME_FORMAT="%Y_%m_%d_%H_%M_%S"
+TIME_FORMAT_EXAMPLE = datetime.datetime.now().strftime(TIME_FORMAT)
 
 class SqliteOutput(OutputBase):
     FILE_EXTENSION = ".sq3"
@@ -22,7 +22,7 @@ class SqliteOutput(OutputBase):
         self.master = (rank==0)
         self.inifile_name = ini
         self.tag = tag
-        self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        self.timestamp = datetime.datetime.now().strftime(TIME_FORMAT)
         self._name = "{0}_{1}_{2}_{3}".format(tag, rank+1, nchain, self.timestamp)
         if self.master:
             self.setup_db_file()
@@ -119,16 +119,43 @@ class SqliteOutput(OutputBase):
         #look something up required parameters in the ini file.
         #how this looks will depend on the ini 
         filename = options['filename']
+        tag = options['tag']
         rank = options.get('rank', 0)
         nchain = options.get('parallel', 1)
-        tag = options.get('tag', 'cosmosis')
         ini = options.get('inifile', '')
         sampler = options.get('sampler', 'unknown')
 
         return cls(filename, tag, sampler, ini, rank, nchain)
 
+    @staticmethod
+    def parse_time_stamp(table):
+        end = -len("_chain")
+        start = end - len(TIME_FORMAT_EXAMPLE)
+        time_stamp_text = table[0][start:end]
+        time_stamp = datetime.datetime.strptime(time_stamp_text,TIME_FORMAT)
+        return time_stamp
+
     @classmethod
     def load_from_options(cls, options):
         filename = options['filename']
+        tag = options['tag']
+        conn = sqlite3.connect(filename)
+        #we don't really need this except it is a conv
+        with conn:
+            sql = "select name from sqlite_master where name like '{}_%_chain'".format(tag)
+            tables = conn.execute(sql).fetchall()
+            tables = [(parse_time_stamp(table), table) for table in tables]
+            #Find latest table
+            tables.sort()
+
+            if len(tables)==0:
+                raise ValueError("Could not find data for a run with the tag you specified ({}) in the given file ({})".format(tag,filename))
+            if len(tables)>1:
+                print 
+                print "Note: There are {} tables with the same tag in this file".format(len(tables))
+                print "I am assuming you want the most recent one"
+            
+        #find
+
         ### more here
         return column_names, data, metadata, comments, final_metadata
