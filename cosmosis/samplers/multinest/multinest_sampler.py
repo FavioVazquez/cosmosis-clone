@@ -63,6 +63,7 @@ MULTINEST_SECTION='multinest'
 class MultinestSampler(ParallelSampler):
     parallel_output = False
     sampler_outputs = [("post", float), ("weight", float)]
+    supports_smp=False
 
     def config(self):
         if self.pool:
@@ -128,9 +129,9 @@ class MultinestSampler(ParallelSampler):
             nextra = nparam-ndim
             #pull out values from cube
             cube_vector = np.array([cube_p[i] for i in xrange(ndim)])
-            vector = self.pipeline.denormalize_vector(cube_vector)
+            vector = self.pipeline.denormalize_vector_from_prior(cube_vector)
             try:
-                like, extra = self.pipeline.posterior(vector)
+                like, extra = self.pipeline.likelihood(vector)
             except KeyboardInterrupt:
                 raise sys.exit(1)
 

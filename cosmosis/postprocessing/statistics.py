@@ -43,6 +43,8 @@ class ConstrainingStatistics(Statistics):
             self.report_file_mode(),
             self.report_file_l95(),
             self.report_file_u95(),
+            self.report_file_l68(),
+            self.report_file_u68(),
         ]
     def report_file_mean(self):        
         #Generate the means file
@@ -54,7 +56,7 @@ class ConstrainingStatistics(Statistics):
 
     def report_file_median(self):
         #Generate the medians file
-        header = "#parameter mean std_dev\n"
+        header = "#parameter mean std_dev"
         median_file, median_filename, new_file = self.get_text_output("medians", header, self.source.name)
         for P in zip(self.source.colnames, self.median, self.sigma):
             median_file.write("%s   %e   %e\n" % P)
@@ -70,7 +72,7 @@ class ConstrainingStatistics(Statistics):
 
     def report_file_l95(self):
         #Generate the medians file
-        header = "#parameter low95\n"
+        header = "#parameter low95"
         limit_file, limit_filename, new_file = self.get_text_output("low95", header, self.source.name)
         for P in zip(self.source.colnames, self.l95):
             limit_file.write("%s     %g\n" % P)
@@ -78,9 +80,25 @@ class ConstrainingStatistics(Statistics):
 
     def report_file_u95(self):
         #Generate the medians file
-        header = "#parameter upper95\n"
+        header = "#parameter upper95"
         limit_file, limit_filename, new_file = self.get_text_output("upper95", header, self.source.name)
         for P in zip(self.source.colnames, self.u95):
+            limit_file.write("%s     %g\n" % P)
+        return limit_filename
+
+    def report_file_l68(self):
+        #Generate the medians file
+        header = "#parameter low68"
+        limit_file, limit_filename, new_file = self.get_text_output("low68", header, self.source.name)
+        for P in zip(self.source.colnames, self.l68):
+            limit_file.write("%s     %g\n" % P)
+        return limit_filename
+
+    def report_file_u68(self):
+        #Generate the medians file
+        header = "#parameter upper68"
+        limit_file, limit_filename, new_file = self.get_text_output("upper68", header, self.source.name)
+        for P in zip(self.source.colnames, self.u68):
             limit_file.write("%s     %g\n" % P)
         return limit_filename
 
@@ -131,6 +149,15 @@ class ConstrainingStatistics(Statistics):
         for name, val in zip(self.source.colnames, self.u95):
             print '    %s < %g' % (name, val)
         print
+        #Mode
+        print "68% lower limits:"
+        for name, val in zip(self.source.colnames, self.l68):
+            print '    %s > %g' % (name, val)
+        print
+        print "68% upper limits:"
+        for name, val in zip(self.source.colnames, self.u68):
+            print '    %s < %g' % (name, val)
+        print
 
     @staticmethod
     def likelihood_ratio_warning(marge_like, name):
@@ -152,12 +179,14 @@ class MetropolisHastingsStatistics(ConstrainingStatistics, MCMCPostProcessorElem
     def compute_basic_stats_col(self, col):
         data = self.reduced_col(col)
         n = len(data)
-        return n, data.mean(), data.std(), np.median(data), np.percentile(data, 5.), np.percentile(data, 95.)
+        return n, data.mean(), data.std(), np.median(data), np.percentile(data, 32.), np.percentile(data, 68.), np.percentile(data, 5.), np.percentile(data, 95.)
 
     def compute_basic_stats(self):
         self.mu = []
         self.sigma = []
         self.median = []
+        self.l68 = []
+        self.u68 = []
         self.l95 = []
         self.u95 = []
         try:self.best_fit_index = self.source.get_col("post").argmax()
@@ -165,10 +194,12 @@ class MetropolisHastingsStatistics(ConstrainingStatistics, MCMCPostProcessorElem
         
         n = 0
         for col in self.source.colnames:
-            n, mu, sigma, median, l95, u95 = self.compute_basic_stats_col(col)
+            n, mu, sigma, median, l68, u68, l95, u95 = self.compute_basic_stats_col(col)
             self.mu.append(mu)
             self.sigma.append(sigma)
             self.median.append(median)
+            self.l68.append(l68)
+            self.u68.append(u68)
             self.l95.append(l95)
             self.u95.append(u95)
         return n
@@ -226,7 +257,7 @@ class GridStatistics(ConstrainingStatistics):
     def set_data(self):
         self.nsample = int(self.source.sampler_option("nsample_dimension"))
         self.nrow = len(self.source)
-        self.ncol = len(self.source.colnames)
+        self.ncol = int(self.source.sampler_option('n_varied'))
 
         extra = self.source.sampler_option("extra_output","").replace('/','--').split()
         self.grid_columns = [i for i in xrange(self.ncol) if (not self.source.colnames[i] in extra) and (self.source.colnames[i]!="post") and (self.source.colnames[i]!="like")]
@@ -255,11 +286,11 @@ class GridStatistics(ConstrainingStatistics):
 
     def compute_stats(self):
         #1D stats
-        self.mu = np.zeros(self.ncol-1)
-        self.median = np.zeros(self.ncol-1)
-        self.sigma = np.zeros(self.ncol-1)
-        self.l95 = np.zeros(self.ncol-1)
-        self.u95 = np.zeros(self.ncol-1)        
+        self.mu = np.zeros(self.ncol)
+        self.median = np.zeros(self.ncol)
+        self.sigma = np.zeros(self.ncol)
+        self.l95 = np.zeros(self.ncol)
+        self.u95 = np.zeros(self.ncol)        
         try:like = self.source.get_col("post")
         except:like = self.source.get_col("like")
         self.best_fit_index = np.argmax(like)
@@ -315,6 +346,58 @@ class GridStatistics(ConstrainingStatistics):
 class TestStatistics(Statistics):
     def run(self):
         return []
+
+
+class GelmanRubinStatistic(MetropolisHastingsStatistics):
+    def gelman_rubin(self, name):
+        # This simplified form compared to the online analytics code:
+        # - assumes the chains are fairly long
+        # - does one parameter at a time
+
+        # Get the chains for each input file
+        chains = self.source.reduced_col(name,stacked=False)
+
+        steps = min([len(chain) for chain in chains])
+        chains = [chain[:steps] for chain in chains]
+        means = [chain.mean() for chain in chains]
+        variances = [chain.var() for chain in chains]
+
+        number_chains = len(chains)
+
+        B_over_n = np.var(means, ddof=1)
+        B = B_over_n * steps
+        W = np.mean(variances)
+        V = W + (1. + 1./number_chains) * B_over_n
+        # TODO: check for 0-values in W
+        Rhat = np.sqrt(V/W)
+        return Rhat - 1.0
+
+    def run(self):
+        if len(self.source.data)<2:
+            print
+            print "(One chain found. Run multiple chains if you want the Gelman-Rubin test)"
+            print
+            return []
+        names = [c for c in self.source.colnames if  c not in ['weight', 'like', 'post']]
+        header = "#parameter   R-1\n"
+        f, filename, is_new = self.get_text_output("gelman", header)
+        print
+        print "Gelman-Rubin tests"
+        print "------------------"
+        print "(Variance of means / Mean of variances.  Smaller is better, a few percent is usually good convergence)"
+        print
+        for name in names:
+            R1 = self.gelman_rubin(name)
+            f.write("{}   {}\n".format(name,R1))
+            if R1>0.1:
+                print "{}    {}  -- POORLY CONVERGED PARAMETER AT 10% LEVEL".format(name,R1)
+            else:
+                print "{}    {}".format(name,R1)
+        print
+        return [filename]
+
+
+
 
 class DunkleyTest(MetropolisHastingsStatistics):
     """
@@ -408,7 +491,8 @@ class WeightedStatistics(object):
         weight = self.weight_col()
         n = len(data)
         return (n, mean_weight(data,weight), std_weight(data,weight), 
-            median_weight(data, weight), percentile_weight(data, weight, 5.), percentile_weight(data, weight, 95.))
+            median_weight(data, weight), percentile_weight(data, weight, 32.), percentile_weight(data, weight, 68.),
+            percentile_weight(data, weight, 5.), percentile_weight(data, weight, 95.))
 
 class MultinestStatistics(WeightedStatistics, MultinestPostProcessorElement, MetropolisHastingsStatistics):
     def run(self):
@@ -423,6 +507,13 @@ class MultinestStatistics(WeightedStatistics, MultinestPostProcessorElement, Met
         print "    log(Z) = %g ± %g" % (logz,logz_sigma)
         print
 
+
+        weight = self.weight_col()
+        w = weight/weight.max()
+        n_eff = w.sum()
+
+        print "Effective number samples = ", n_eff
+        print
         #Now save to file
         header = '#logz    logz_sigma'
         f, filename, new_file  = self.get_text_output("evidence", header, self.source.name)
@@ -440,14 +531,18 @@ class WeightedMetropolisStatistics(WeightedStatistics, ConstrainingStatistics, W
         self.median = []
         self.l95 = []
         self.u95 = []
+        self.l68 = []
+        self.u68 = []
         try:self.best_fit_index = self.source.get_col("post").argmax()
         except:self.best_fit_index = self.source.get_col("like").argmax()
         n = 0
         for col in self.source.colnames:
-            n, mu, sigma, median, l95, u95 = self.compute_basic_stats_col(col)
+            n, mu, sigma, median, l68, u68, l95, u95 = self.compute_basic_stats_col(col)
             self.mu.append(mu)
             self.sigma.append(sigma)
             self.median.append(median)
+            self.l68.append(l68)
+            self.u68.append(u68)
             self.l95.append(l95)
             self.u95.append(u95)
         return n
