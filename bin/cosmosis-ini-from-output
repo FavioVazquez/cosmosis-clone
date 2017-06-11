@@ -45,7 +45,11 @@ def read_header(chain_file):
     return lines
 
 def change_central_value(ini, section, name, value):
-    old_value = ini.get(section, name)
+    try:
+        old_value = ini.get(section, name)
+    except:
+        sys.stderr.write("Ignoring presumably derived parameter {}--{}\n".format(section,name))
+        return
     words = old_value.split()
     if len(words)==1:
         new_value = str(value)
